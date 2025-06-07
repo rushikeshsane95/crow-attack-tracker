@@ -1,4 +1,5 @@
 using CrowAttackTracker.Components;
+using CrowAttackTracker.Components.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +9,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<ReportService>();
+
 
 var app = builder.Build();
 

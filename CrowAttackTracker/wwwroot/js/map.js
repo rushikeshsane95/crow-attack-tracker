@@ -21,6 +21,23 @@ window.initMap = (ref) => {
             dotNetRef.invokeMethodAsync("OnMapClick", latlng.lat, latlng.lng);
         }
     });
+
+    window.updateReports = (reportList) => {
+        if (!map || !reportList) return;
+
+        heat.setLatLngs([]); // Clear previous heatmap
+
+        // Jittered points to help distinguish overlapping ones
+        const jitteredPoints = reportList.map(r => [
+            r.lat + (Math.random() - 0.5) * 0.0003,
+            r.lng + (Math.random() - 0.5) * 0.0003
+        ]);
+
+        // Set the entire heatmap data in one call
+        heat.setLatLngs(jitteredPoints);
+    };
+
+
 };
 
 window.getUserLocation = () => {
@@ -48,3 +65,4 @@ window.panToLocation = (lat, lng) => {
         heat.addLatLng([lat, lng]);
     }
 };
+

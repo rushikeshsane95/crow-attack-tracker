@@ -1,9 +1,12 @@
 ﻿@page "/crowmap"
-@using System.Text.Json
 @rendermode InteractiveServer
+
 @inject IJSRuntime JS
 @inject HttpClient Http
+@inject CrowAttackTracker.Components.Service.ReportService ReportService
+
 @using CrowAttackTracker.Components.Models
+@using System.Text.Json
 
 <h3>Crow Attack Tracker</h3>
 
@@ -43,12 +46,19 @@
     private bool showForm = false;
     private string searchAddress;
 
+    private IEnumerable<Report> reports => ReportService.GetReports();
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             var dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("initMap", dotNetRef);
+
+            if (reports.Any())
+            {
+                await JS.InvokeVoidAsync("updateReports", reports);
+            }
         }
     }
 
@@ -68,19 +78,13 @@
 
     private async Task FindAddress()
     {
-        Console.WriteLine("FindAddress triggered");
-
         if (string.IsNullOrWhiteSpace(searchAddress))
-        {
-            Console.WriteLine("Address is empty.");
             return;
-        }
 
         try
         {
             var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(searchAddress)}&format=json";
 
-    // Build a manual HttpRequestMessage with User-Agent
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.UserAgent.ParseAdd("CrowAttackTracker/1.0 (your-email@example.com)");
 
@@ -96,13 +100,9 @@
                 selectedLat = double.Parse(result.lat);
                 selectedLng = double.Parse(result.lon);
                 showForm = true;
-                
+
                 await JS.InvokeVoidAsync("panToLocation", selectedLat, selectedLng);
-                
                 StateHasChanged();
-
-                Console.WriteLine($"Found address: {result.display_name}");
-
             }
             else
             {
@@ -115,13 +115,23 @@
         }
     }
 
-
-    private void SubmitReport()
+    private async Task SubmitReport()
     {
-        Console.WriteLine($"Report submitted: {selectedLat},{selectedLng} - {description} (Severity: {severity})");
+        var report = new Report
+            {
+                Lat = selectedLat,
+                Lng = selectedLng,
+                Description = description,
+                Severity = severity
+            };
+
+        ReportService.AddReport(report);
+
         showForm = false;
         description = "";
         severity = 1;
+
+        await JS.InvokeVoidAsync("updateReports", reports);
     }
 
     public class NominatimResult
