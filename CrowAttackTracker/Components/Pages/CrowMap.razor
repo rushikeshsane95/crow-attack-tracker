@@ -1,0 +1,133 @@
+﻿@page "/crowmap"
+@using System.Text.Json
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject HttpClient Http
+@using CrowAttackTracker.Components.Models
+
+<h3>Crow Attack Tracker</h3>
+
+<div class="mb-2">
+    <button class="btn btn-outline-primary me-2" @onclick="UseMyLocation">📍 Use My Location</button>
+    <input class="form-control d-inline-block" placeholder="Enter address..." style="width: 300px;" @bind="searchAddress" />
+    <button class="btn btn-outline-success ms-2" @onclick="FindAddress">🔍 Find</button>
+</div>
+
+<div id="map" style="height: 600px; width: 100%;"></div>
+
+@if (showForm)
+{
+    <div class="card mt-3 p-3 shadow">
+        <h5>Report Crow Attack</h5>
+        <p><strong>Location:</strong> @selectedLat, @selectedLng</p>
+
+        <div class="mb-2">
+            <label>Description:</label>
+            <textarea class="form-control" @bind="description"></textarea>
+        </div>
+        <div class="mb-2">
+            <label>Severity (1–5):</label>
+            <input type="number" min="1" max="5" class="form-control" @bind="severity" />
+        </div>
+
+        <button class="btn btn-primary" @onclick="SubmitReport">Submit</button>
+        <button class="btn btn-secondary ms-2" @onclick="() => showForm = false">Cancel</button>
+    </div>
+}
+
+@code {
+    private double selectedLat;
+    private double selectedLng;
+    private string description;
+    private int severity = 1;
+    private bool showForm = false;
+    private string searchAddress;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("initMap", dotNetRef);
+        }
+    }
+
+    [JSInvokable]
+    public void OnMapClick(double lat, double lng)
+    {
+        selectedLat = lat;
+        selectedLng = lng;
+        showForm = true;
+        StateHasChanged();
+    }
+
+    private async Task UseMyLocation()
+    {
+        await JS.InvokeVoidAsync("getUserLocation");
+    }
+
+    private async Task FindAddress()
+    {
+        Console.WriteLine("FindAddress triggered");
+
+        if (string.IsNullOrWhiteSpace(searchAddress))
+        {
+            Console.WriteLine("Address is empty.");
+            return;
+        }
+
+        try
+        {
+            var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(searchAddress)}&format=json";
+
+    // Build a manual HttpRequestMessage with User-Agent
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.UserAgent.ParseAdd("CrowAttackTracker/1.0 (your-email@example.com)");
+
+            var response = await Http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var stream = await response.Content.ReadAsStreamAsync();
+            var results = await JsonSerializer.DeserializeAsync<List<NominatimResult>>(stream);
+
+            if (results != null && results.Count > 0)
+            {
+                var result = results[0];
+                selectedLat = double.Parse(result.lat);
+                selectedLng = double.Parse(result.lon);
+                showForm = true;
+                
+                await JS.InvokeVoidAsync("panToLocation", selectedLat, selectedLng);
+                
+                StateHasChanged();
+
+                Console.WriteLine($"Found address: {result.display_name}");
+
+            }
+            else
+            {
+                Console.WriteLine("No results found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Geocoding error: " + ex.Message);
+        }
+    }
+
+
+    private void SubmitReport()
+    {
+        Console.WriteLine($"Report submitted: {selectedLat},{selectedLng} - {description} (Severity: {severity})");
+        showForm = false;
+        description = "";
+        severity = 1;
+    }
+
+    public class NominatimResult
+    {
+        public string lat { get; set; }
+        public string lon { get; set; }
+        public string display_name { get; set; }
+    }
+}

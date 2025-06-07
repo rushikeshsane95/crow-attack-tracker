@@ -1,0 +1,32 @@
+# Ignore obj and bin directories in all projects
+**/obj/
+**/bin/
+
+# Ignore the lib folder
+**/lib/
+
+# Optionally, you can also ignore other common.NET Core files
+**/Debug/
+**/Release/
+**/*.user
+**/*.suo
+**/*.ntvs*
+**/*.nupkg
+**/packages/
+**/vs/
+**/.vs/
+
+# Auto-generated files from builds
+*.log
+*.db
+*.pid
+*.coverage
+*.TestResult.xml
+*.tmp
+
+# User-specific settings (VS Code, Rider, etc.)
+.vscode/
+.idea/
+
+# Global NuGet/VS build folders
+.nuget/
